@@ -25,7 +25,13 @@ def connect_db(): # Connect to the data
     try:
         db_url=os.environ.get('DATABASE_URL')
         if db_url:
+            if 'sslmode' not in db_url:
+                if '?'in db_url:
+                    db_url+='&sslmode=require'
+                else:
+                    db_url+='?sslmode=require'
             conn=psycopg2.connect(db_url)
+            
         else:
             db_params=config()
             conn=psycopg2.connect(**db_params)

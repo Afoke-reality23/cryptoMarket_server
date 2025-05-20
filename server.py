@@ -4,7 +4,7 @@ from urllib.parse import urlparse,parse_qs
 from datetime import datetime
 from decimal import Decimal
 import traceback
-# from custom import connect_db
+from custom import connect_db
 from response import response
 import asyncio
 import psycopg2
@@ -18,9 +18,6 @@ port = int(os.environ.get('PORT',5000))
 server_IP = ''  
 server.bind((server_IP, port))
 server.listen()
-
-def connect_db():
-    return
 
 def handle_connections():
     try:
