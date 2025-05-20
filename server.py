@@ -31,6 +31,7 @@ def handle_connections():
             print('Server is listening for connections!!!')
             conn, addr = server.accept()
             data=conn.recv(1024).decode()
+            print(data)
             method=data.splitlines('\r\n')[0]
             parse_url=urlparse(method)
             query=parse_url.path
