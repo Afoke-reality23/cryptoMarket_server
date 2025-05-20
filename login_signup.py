@@ -13,8 +13,13 @@ from dotenv import load_dotenv
 import os
 
 
-load_dotenv()
-
+# load_dotenv()
+load_dotenv('.env.d')
+user=os.getenv('user')
+host=os.getenv('host')
+database=os.getenv('database')
+password=os.getenv('password')
+print(user,host,database,password)
 def process_google_auth(data,sock,cursor):
     request_line=data.splitlines()[0]
     method,url,protocol=request_line.split(' ')

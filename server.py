@@ -12,8 +12,9 @@ from login_signup import process_google_auth,signup,login
 from custom import database_column_value_extractor
 import os
 
+
 server = socket.socket()
-port = int(os.environ.get('PORT'))
+port = int(os.environ.get('PORT',5000))
 server_IP = ''  
 server.bind((server_IP, port))
 server.listen()
