@@ -19,10 +19,12 @@ server_IP = ''
 server.bind((server_IP, port))
 server.listen()
 
+def connect_db():
+    return
 
 def handle_connections():
     try:
-        # conn=connect_db()
+        conn=connect_db()
         if conn:
             crs=conn.cursor()
         while True:
