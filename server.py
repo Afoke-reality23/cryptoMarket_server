@@ -4,7 +4,7 @@ from urllib.parse import urlparse,parse_qs
 from datetime import datetime
 from decimal import Decimal
 import traceback
-from custom import connect_db
+# from custom import connect_db
 from response import response
 import asyncio
 import psycopg2
@@ -22,7 +22,7 @@ server.listen()
 
 def handle_connections():
     try:
-        conn=connect_db()
+        # conn=connect_db()
         if conn:
             crs=conn.cursor()
         while True:
