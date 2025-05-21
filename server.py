@@ -158,6 +158,7 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                     else:
                         # data['username']=generate_username()
                         # data['balance']=10000
+                        print('about to call sign up')
                         assets=asyncio.run(signup(data,sock,method))
                     return assets
                 case'/frontend/oauth/login/password/':
