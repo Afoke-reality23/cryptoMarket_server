@@ -30,6 +30,8 @@ def connect_db(): # Connect to the data
                     db_url+='&sslmode=require'
                 else:
                     db_url+='?sslmode=require'
+            if 'options' not in db_url:       
+                db_url='&options=-csearch_path%3Dcrypto_hub_schema'
             conn=psycopg2.connect(db_url)
             
         else:
