@@ -30,7 +30,7 @@ def handle_connections():
             conn, addr = server.accept()
             # data=conn.recv(1024).decode()
             data=recieve_full_data(conn)
-            method=data.splitlines('\r\n')[0]
+            method=data.splitlines()[0]
             parse_url=urlparse(method)
             query=parse_url.path
             path_method=query.split(' ')
