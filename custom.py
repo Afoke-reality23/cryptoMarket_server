@@ -38,7 +38,7 @@ def connect_db(): # Connect to the data
         conn.autocommit=True
         return conn
     except psycopg2.DatabaseError as error:
-        traceback.print_exc(error)
+        traceback.print_exc()
 
 def generate_trans_id():
     print('hi')
