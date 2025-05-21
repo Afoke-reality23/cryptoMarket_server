@@ -74,7 +74,7 @@ def handle_connections():
             else:
                 response(conn,method,body)
     except (Exception,KeyboardInterrupt) as error:
-        traceback.print_exc(error)
+        traceback.print_exc()
     finally:
         conn.close()
 
@@ -166,7 +166,7 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                     return assets
             
     except Exception as error:
-        traceback.print_exc(error)
+        traceback.print_exc()
 
 def get_searched_assets(data,crs):
     try:
@@ -188,8 +188,11 @@ def get_searched_assets(data,crs):
         db_assets=json.dumps(all_assets)
         reply={'body':db_assets}
         return reply
-    except Exception as error:
-        traceback.print_exc(error)
+    except Exception:
+        traceback.print_exc()
+    except psycopg2.DatabaseError as error:
+        print('DatabaseErro:',error)
+
 
 def get_user_profile(cookie,crs):
         try:
@@ -302,7 +305,7 @@ def get_asset_details(data,crs):
         data={'body':reply}
         return data
     except Exception as error:
-        traceback.print_exc(error)
+        traceback.print_exc()
 #GET queies
 #100% done with assets endpoint
 def get_assets(crs):
@@ -325,7 +328,7 @@ def get_assets(crs):
         reply={'body':db_assets}
         return reply
     except Exception as error:
-        traceback.print_exc(error)
+        traceback.print_exc()
 
 def get_total_values(crs):
     crs.execute('select sum(market_cap) as total_market_cap,sum(percent_change_24h) as total_percent from assets')
@@ -374,7 +377,7 @@ def get_users_transation(cookie,crs):#Done with this for now REFACTOR later
             data={'body':reply}
             return data
         except (Exception,SyntaxError,ValueError,IndexError) as error:
-            traceback.print_exc(error)
+            traceback.print_exc()
 
 def buy_asset(buy_data,crs,balance):
     db_data=database_column_value_extractor(buy_data)

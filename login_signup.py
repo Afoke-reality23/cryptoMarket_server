@@ -76,7 +76,7 @@ async def main(code,client_id,client_secret,sock,crs):
             data=await tg
             return data
     except Exception as error:
-        traceback.print_exc(error)
+        traceback.print_exc()
 
 
 
@@ -137,7 +137,7 @@ async def signup(data,crs,sock='',method=''):
                 print('message sent')
             
     except Exception as error:
-        traceback.print_exc(error)
+        traceback.print_exc()
 
 def login(data,crs,sock,method):
     try:
