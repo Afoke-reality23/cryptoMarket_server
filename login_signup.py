@@ -81,6 +81,7 @@ async def main(code,client_id,client_secret,sock,crs):
 
 
 async def signup(data,crs,sock='',method=''):
+    print('inside sign up')
     try:
         if len(data) ==1 and list(data.keys())[0] == list(data.keys())[0]:
             ## for manually changing of username
