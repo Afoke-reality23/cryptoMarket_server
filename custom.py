@@ -31,8 +31,6 @@ def connect_db(): # Connect to the data
                 else:
                     db_url+='?sslmode=require'
             conn=psycopg2.connect(db_url)
-            with conn.cursor() as crs:
-                crs.execute('set search_path to crypto_schema')
         else:
             db_params=config()
             conn=psycopg2.connect(**db_params)
@@ -40,6 +38,7 @@ def connect_db(): # Connect to the data
         return conn
     except psycopg2.DatabaseError as error:
         traceback.print_exc()
+
 
 def generate_trans_id():
     print('hi')
