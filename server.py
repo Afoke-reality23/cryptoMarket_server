@@ -30,7 +30,7 @@ def handle_connections():
             conn, addr = server.accept()
             # data=conn.recv(1024).decode()
             data=recieve_full_data(conn)
-            if data is NONE or data.strip()== '':
+            if data is None or data.strip()== '':
                 continue
             print('data recieved >>>:',data)
             method=data.split('\r\n')[0]
