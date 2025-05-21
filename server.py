@@ -101,6 +101,7 @@ def recieve_full_data(conn):
                 break
             body+=chunk
         full_request=headers + '\r\n\r\n' + body.decode('utf-8')
+        print(full_request)
         return full_request
     except Exception:
         traceback.print_exc()
@@ -138,6 +139,7 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                     assets=logout(cookie,crs)
             return assets
         else:
+            print(data)
             data=json.loads(body)
             match path:
                 case '/frontend/oauth/create-account/password/':
