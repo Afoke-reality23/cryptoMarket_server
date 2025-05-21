@@ -32,6 +32,7 @@ def handle_connections():
             data=recieve_full_data(conn)
             print('data recieved >>>:',data)
             method=data.split('\r\n')[0]
+            print('passed for HEAD request')
             parse_url=urlparse(method)
             query=parse_url.path
             path_method=query.split(' ')
