@@ -28,7 +28,8 @@ def handle_connections():
         while True:
             print('Server is listening for connections!!!')
             conn, addr = server.accept()
-            data=conn.recv(1024).decode()
+            # data=conn.recv(1024).decode()
+            data=recieve_full_data(conn)
             method=data.splitlines('\r\n')[0]
             parse_url=urlparse(method)
             query=parse_url.path
@@ -77,7 +78,32 @@ def handle_connections():
         traceback.print_exc()
     finally:
         conn.close()
-
+def recieve_full_data(conn):
+    try:
+        request=b''
+        while b'\r\n\r\n' not in request:
+            chunk=conn.recv(1024)
+            if not chunk:
+                return None
+            request+=chunk
+        header_bytes,remaining_chunk=request.split(b'\r\n\r\n',1)
+        headers=header_bytes.decode('utf-8')
+        content_length=0
+        for line in headers.split('\r\n'):
+            if line.lower().startswith('content-length'):
+                content_length=int(line.split(':',1)[1].strip())
+                break
+        body=remaining_chunk
+        while len(body) < content_length:
+            chunk=conn.recv(1024)
+            if not chunk:
+                print('empty chunk')
+                break
+            body+=chunk
+        full_request=headers + '\r\n\r\n' + body.decode('utf-8')
+        return full_request
+    except Exception:
+        traceback.print_exc()
 def process_request(path,request,sock,method,status,cookie,crs):#process all http request
     try:
         headers,body=request.split('\r\n\r\n',1)
