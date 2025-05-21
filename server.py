@@ -15,6 +15,7 @@ import os
 
 server = socket.socket()
 port = int(os.environ.get('PORT',5000))
+# port=1998
 server_IP = ''  
 server.bind((server_IP, port))
 server.listen()
@@ -28,7 +29,6 @@ def handle_connections():
             print('Server is listening for connections!!!')
             conn, addr = server.accept()
             data=conn.recv(1024).decode()
-            print(data)
             method=data.splitlines('\r\n')[0]
             parse_url=urlparse(method)
             query=parse_url.path
@@ -90,10 +90,12 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
             table_name=parse_url.path.replace('/'," ").strip()
             query_param=parse_qs(parse_url.query)
             data={'table_name':table_name,'columns':{k:v[0] for k,v in query_param.items()}}
+            print(f'path printing:{path}')
             match path:
                 case '/transaction':
                      assets=get_users_transation(cookie,crs)
                 case '/assets':
+                    print('asset about to be fetched')
                     assets=get_assets(crs)
                 case '/search':
                     assets=get_searched_assets(data['columns'],crs)
@@ -309,6 +311,7 @@ def get_asset_details(data,crs):
 #GET queies
 #100% done with assets endpoint
 def get_assets(crs):
+    print('inside asset function')
     try:
         assets_query=f"select id,name,symbol,price,market_cap,percent_change_24h from assets order by no limit 200"
         crs.execute(assets_query)
@@ -326,6 +329,8 @@ def get_assets(crs):
             all_assets.append(asset)  
         db_assets=json.dumps(all_assets)
         reply={'body':db_assets}
+        print(db_assets)
+        print('asset fetched successfullu')
         return reply
     except Exception as error:
         traceback.print_exc()
