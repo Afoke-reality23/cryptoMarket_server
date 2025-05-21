@@ -165,7 +165,7 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                     for x in response:
                         emails.append(x[0])
                     if data['email'] in emails:
-                        crs.execute(f"select password from users where email='{data['email']}'")
+                        crs.execute("select password from users where email=%s",(data['email'],))
                         password=crs.fetchone()[0]
                         if password == data['password']:
                             assets=login(data,sock,method,crs)
@@ -223,7 +223,7 @@ def get_searched_assets(data,crs):
 
 def get_user_profile(cookie,crs):
         try:
-            crs.execute(f'select user_id from session where session_id=%s',(cookie,))
+            crs.execute('select user_id from session where session_id=%s',(cookie,))
             user_id=crs.fetchone()[0]
             crs.execute("select username,balance,transaction_id from users where users_id=%s",(user_id,))
             user_profile=crs.fetchall()[0]
@@ -279,10 +279,10 @@ def oauth_user(status,crs):
     return data
 
 def logout(cookies,crs):
-    crs.execute(f"select * from session where session_id='{cookies}'")
+    crs.execute("select * from session where session_id=%s",(cookies,))
     cookie_response=crs.fetchone()[0]
     if cookie_response:
-        crs.execute(f"delete from session where session_id ='{cookies}'")
+        crs.execute("delete from session where session_id =%s",(cookies,))
         max_age=0
         reply={
             'session_id':cookies,
@@ -291,7 +291,7 @@ def logout(cookies,crs):
         return reply
 
 def get_asset_chart(data,crs):
-    crs.execute(f'select open,high,low,close,time from chart where asset_id={data['id']}')
+    crs.execute('select open,high,low,close,time from chart where asset_id=%s',(data['id'],))
     rows=crs.fetchall()
     chart_value=[[float(v) if isinstance(v,Decimal) else v for v in row] for row in rows]
     charts=json.dumps(chart_value)
@@ -341,8 +341,7 @@ def get_asset_details(data,crs):
 #100% done with assets endpoint
 def get_assets(crs):
     try:
-        assets_query=f"select id,name,symbol,price,market_cap,percent_change_24h from assets order by no limit 200"
-        crs.execute(assets_query)
+        crs.execute("select id,name,symbol,price,market_cap,percent_change_24h from assets order by no limit 200")
         assets=crs.fetchall()
         all_assets=[]
         for asset in assets:
@@ -367,7 +366,6 @@ def get_total_values(crs):
     crs.execute('select sum(market_cap) as total_market_cap,sum(percent_change_24h) as total_percent from assets')
     totals=crs.fetchone()
     totals=[float(x) for x in totals ]
-    # print(totals)
     reply=json.dumps(totals)
     data={'body':reply}
     return data
@@ -416,7 +414,9 @@ def get_users_transation(cookie,crs):#Done with this for now REFACTOR later
 
 def buy_asset(buy_data,crs,balance):
     db_data=database_column_value_extractor(buy_data)
-    insert=f"INSERT INTO transaction({db_data['columns']}) VALUES({db_data['placeholder']})"
+    columns=db_data['columns']
+    placeholders=db_data['placeholder']
+    insert=f"INSERT INTO transaction({columns}) VALUES({placeholders})"
     crs.execute(insert,db_data['values'])
 
     portfolio=f"""
@@ -437,7 +437,7 @@ def buy_asset(buy_data,crs,balance):
                     total_value=EXCLUDED.total_value
             """
     crs.execute(portfolio,(buy_data['user_id'],buy_data['asset_id']))
-    crs.execute(f'update users set balance =%s where users_id=%s',(balance,buy_data['user_id']))
+    crs.execute('update users set balance =%s where users_id=%s',(balance,buy_data['user_id']))
     
 
 def sell_asset(sell_data,crs,balance,quantity):
@@ -452,8 +452,11 @@ def sell_asset(sell_data,crs,balance,quantity):
     profit_data={'amount':sell_data['processing_speed'],'processing_speed':processing_speed}
     del sell_data['processing_speed']
     prof_data=database_column_value_extractor(profit_data)
-    crs.execute(f'insert into profit({prof_data['columns']}) values({prof_data['placeholder']})',prof_data['values'])
-    crs.execute(f'select transaction_id from users')
+    prof_columns=prof_data['columns']
+    prof_placeholder=prof_data['placeholder']
+    prof_values=prof_data['values']
+    crs.execute(f'insert into profit({prof_columns}) values({prof_placeholder})',prof_values)
+    crs.execute('select transaction_id from users')
     all_wallet_id=[wallet_id[0] for wallet_id in crs.fetchall()]
     if sell_data['reciever_wallet'] not in all_wallet_id:
         raise ValueError('invalid wallet address')
@@ -466,8 +469,11 @@ def sell_asset(sell_data,crs,balance,quantity):
     reciever_data['trans_type']='buy'
     buy_asset(reciever_data,crs,float(reciever_balance))
     db_data=database_column_value_extractor(sell_data)
-    insert=f"INSERT INTO transaction({db_data['columns']}) VALUES({db_data['placeholder']})"
-    crs.execute(insert,db_data['values'])
+    columns=db_data['columns']
+    placeholder=db_data['placeholder']
+    values=db_data['values']
+    insert=f"INSERT INTO transaction({columns}) VALUES({placeholder})"
+    crs.execute(insert,values)
     quantity_balance=float(quantity[0])- sell_data['trans_quantity']
     crs.execute(" update portfolio set quantity=%s where user_id=%s and asset_id=%s",[quantity_balance,sell_data['user_id'],sell_data['asset_id']])
     crs.execute(f'update users set balance =%s where users_id=%s',(balance,sell_data['user_id']))
@@ -519,7 +525,6 @@ def transaction(client_data,cookie,crs): # transaction function update the trans
 
 
 def validate_trans_client_data(val_client_data,crs):# validate input sent sent by client before inserting into transaction table
-    print(val_client_data)
     required_data={"user_id","asset_id","trans_type","trans_quantity","trans_price"}
     missing_data_key=required_data - set(val_client_data.keys())
     missing_data_values={}
@@ -537,22 +542,22 @@ def validate_trans_client_data(val_client_data,crs):# validate input sent sent b
 
 
 def validate_trans_db_data(crs,val_db_data): # validate data from the transaction table in the db to decide weather to insert new data into the transaction table or not
-    check_user_asset_existence=f"""
+    check_user_asset_existence="""
     select users_id,symbol 
     from users u,assets a
-    where u.users_id={val_db_data['user_id']} and a.id='{val_db_data['asset_id']}'
+    where u.users_id=%s and a.id=%s
     """
-    crs.execute(check_user_asset_existence)
+    crs.execute(check_user_asset_existence,(val_db_data['user_id'],val_db_data['asset_id']))
     check=crs.fetchall()
     if not check:
         raise ValueError('user or selected assets does not exist')
     
-    fetch_duplicate=f"""
+    fetch_duplicate="""
     select user_id,asset_id,trans_type,trans_quantity,trans_price,trans_time
     from transaction 
-    where user_id={val_db_data['user_id']} and CAST(trans_time AS timestamp) > NOW()- INTERVAL '5 seconds'
+    where user_id=%s and CAST(trans_time AS timestamp) > NOW()- INTERVAL '5 seconds'
     """
-    crs.execute(fetch_duplicate)
+    crs.execute(fetch_duplicate,(val_db_data['user_id'],))
     result=crs.fetchall()
     if result:
         duplicates=result
