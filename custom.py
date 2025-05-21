@@ -48,7 +48,7 @@ def generate_trans_id():
         result+=random.choice(stri)
     return result
 
-def generate_username():
+def generate_username(crs):
    
     first_list = [
     "cobra", "mustang", "whale", "crypto", "ignite", "block", "vaults", "forge", "shift", "core",
