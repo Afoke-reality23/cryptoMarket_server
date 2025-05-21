@@ -31,7 +31,7 @@ def handle_connections():
             # data=conn.recv(1024).decode()
             data=recieve_full_data(conn)
             print('data recieved >>>:',data)
-            method=data.splitlines()[0]
+            method=data.split('\r\n')[0]
             parse_url=urlparse(method)
             query=parse_url.path
             path_method=query.split(' ')
