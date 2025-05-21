@@ -5,7 +5,7 @@ def auth_header():
     headers = (
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Type: application/json\r\n"
-                "Access-Control-Allow-Origin: http://127.0.0.1:5500\r\n"
+                "Access-Control-Allow-Origin:https://realcryptomarket.netlify.app/\r\n"
                 "Access-Control-Allow-Methods: GET,POST,OPTIONS\r\n"
                 "Access-Control-Allow-Headers: Content-Type\r\n"
                 "Access-Control-Allow-Credentials:true\r\n"
