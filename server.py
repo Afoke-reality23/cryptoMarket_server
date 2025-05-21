@@ -30,6 +30,7 @@ def handle_connections():
             conn, addr = server.accept()
             # data=conn.recv(1024).decode()
             data=recieve_full_data(conn)
+            print('data recieved >>>:',data)
             method=data.splitlines()[0]
             parse_url=urlparse(method)
             query=parse_url.path
@@ -101,7 +102,7 @@ def recieve_full_data(conn):
                 break
             body+=chunk
         full_request=headers + '\r\n\r\n' + body.decode('utf-8')
-        print(full_request)
+        # print(full_request)
         return full_request
     except Exception:
         traceback.print_exc()
