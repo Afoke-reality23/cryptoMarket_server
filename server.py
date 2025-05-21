@@ -90,12 +90,10 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
             table_name=parse_url.path.replace('/'," ").strip()
             query_param=parse_qs(parse_url.query)
             data={'table_name':table_name,'columns':{k:v[0] for k,v in query_param.items()}}
-            print(f'path printing:{path}')
             match path:
                 case '/transaction':
                      assets=get_users_transation(cookie,crs)
                 case '/assets':
-                    print('asset about to be fetched')
                     assets=get_assets(crs)
                 case '/search':
                     assets=get_searched_assets(data['columns'],crs)
@@ -103,8 +101,7 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                     assets=get_total_values(crs)
                 case '/profile':
                     assets=get_user_profile(cookie,crs)
-                # case 'portfolio':
-                #     assets=get_user_portfolio(data['columns'])
+            
                 case '/asset_details':
                     assets=get_asset_details(data['columns'],crs)
                 case '/chart':
@@ -241,8 +238,10 @@ def get_user_profile(cookie,crs):
             reply=json.dumps(msg)
             data={'body':reply}
             return data
-        except (Exception,psycopg2.DatabaseError) as error:
-            print(error)
+        except Exception:
+            traceback.print_exc()
+        except psycopg2.DatabaseError as error:
+            print('DatabaseErro:',error)
 
 
 def oauth_user(status,crs):
@@ -306,12 +305,13 @@ def get_asset_details(data,crs):
         reply=json.dumps(detail_dict)
         data={'body':reply}
         return data
-    except Exception as error:
+    except Exception:
         traceback.print_exc()
+    except psycopg2.DatabaseError as error:
+        print('DatabaseErro:',error)
 #GET queies
 #100% done with assets endpoint
 def get_assets(crs):
-    print('inside asset function')
     try:
         assets_query=f"select id,name,symbol,price,market_cap,percent_change_24h from assets order by no limit 200"
         crs.execute(assets_query)
@@ -329,11 +329,11 @@ def get_assets(crs):
             all_assets.append(asset)  
         db_assets=json.dumps(all_assets)
         reply={'body':db_assets}
-        print(db_assets)
-        print('asset fetched successfullu')
         return reply
-    except Exception as error:
+    except Exception:
         traceback.print_exc()
+    except psycopg2.DatabaseError as error:
+        print('DatabaseErro:',error)
 
 def get_total_values(crs):
     crs.execute('select sum(market_cap) as total_market_cap,sum(percent_change_24h) as total_percent from assets')
@@ -381,8 +381,10 @@ def get_users_transation(cookie,crs):#Done with this for now REFACTOR later
             reply=json.dumps(transaction)
             data={'body':reply}
             return data
-        except (Exception,SyntaxError,ValueError,IndexError) as error:
+        except (Exception,SyntaxError,ValueError,IndexError):
             traceback.print_exc()
+        except psycopg2.DatabaseError as error:
+            print('DatabaseErro:',error)
 
 def buy_asset(buy_data,crs,balance):
     db_data=database_column_value_extractor(buy_data)
