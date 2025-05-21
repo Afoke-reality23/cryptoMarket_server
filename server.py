@@ -32,9 +32,7 @@ def handle_connections():
             data=recieve_full_data(conn)
             if data is None or data.strip()== '':
                 continue
-            print('data recieved >>>:',data)
             method=data.split('\r\n')[0]
-            print('passed for HEAD request')
             parse_url=urlparse(method)
             query=parse_url.path
             path_method=query.split(' ')
@@ -143,8 +141,8 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                     assets=logout(cookie,crs)
             return assets
         else:
-            print(data)
             data=json.loads(body)
+            print('here is data json',data)
             match path:
                 case '/frontend/oauth/create-account/password/':
                     crs.execute('select email from users')
