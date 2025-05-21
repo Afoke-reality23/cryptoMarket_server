@@ -36,8 +36,8 @@ def handle_connections():
             path_method=query.split(' ')
             path=path_method[1]
             method=path_method[0]
-            if data.startswith('OPTIONS'):
-                response(conn,path,method)
+            if data.startswith('OPTIONS') or  data.startswith('HEAD'):
+                response(conn,method)
                 continue
             cookies={}
             headers=data.split('\r\n')
