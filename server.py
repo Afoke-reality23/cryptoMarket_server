@@ -142,16 +142,11 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
             return assets
         else:
             data=json.loads(body)
-            print('here is data json',data)
             match path:
                 case '/frontend/oauth/create-account/password/':
-                    print('very bginining')
                     crs.execute('select email from users')
                     response=crs.fetchall()
-                    print(response)
                     emails=[x for x in response]
-                    # for x in response:
-                        # emails.append(x[0])
                     if data['email'] in emails:
                         msg={'response':'Invalid Credential','status':'Registered'}
                         reply=json.dumps(msg)
@@ -160,9 +155,8 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                     else:
                         # data['username']=generate_username()
                         # data['balance']=10000
-                        print('about to call sign up')
                         assets=asyncio.run(signup(data,crs,sock,method))
-                        print('print signup asset',assets)
+                        print('signup message',assets)
                     return assets
                 case'/frontend/oauth/login/password/':
                     crs.execute('select email from users')
