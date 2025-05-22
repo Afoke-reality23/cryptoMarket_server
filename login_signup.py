@@ -117,14 +117,14 @@ async def signup(data,crs,sock='',method=''):
             transaction_id=generate_trans_id()
             crs.execute('update users set username=%s,balance=%s,transaction_id=%s where users_id=%s',[signup_username,10000,transaction_id,user_id])
             if method == 'POST':
-                msg={'response':'signup successfull'}
+                msg={'status':'successfull'}
                 reply=json.dumps(msg)
                 data={'body':reply,'session_id':session_id}
                 return data
             else:
                 msg=(
                     'HTTP/1.1 302 Found\r\n'
-                    'Location: https://realcryptomarket.netlify.app/index.html\r\n'
+                    # 'Location: https://realcryptomarket.netlify.app/index.html\r\n'
                     # 'Access-Control-Allow-Origin:http://127.0.0.1:5500\r\n'
                     'Content-Length:0\r\n'
                     # 'Access-Control-Allow-Credentials:true\r\n'
@@ -147,7 +147,7 @@ def login(data,crs,sock,method):
         user_id=crs.fetchone()[0]
         crs.execute("insert into session(session_id,user_id) values(%s,%s)",(session_id,user_id))
         if method == 'POST':
-            msg={'response':'login successfull'}
+            msg={'status':'successfull'}
             reply=json.dumps(msg)
             data={'body':reply,'session_id':session_id}
             return data
