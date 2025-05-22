@@ -145,11 +145,13 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
             print('here is data json',data)
             match path:
                 case '/frontend/oauth/create-account/password/':
+                    print('very bginining')
                     crs.execute('select email from users')
                     response=crs.fetchall()
-                    emails=[]
-                    for x in response:
-                        emails.append(x[0])
+                    print(response)
+                    emails=[x for x in response]
+                    # for x in response:
+                        # emails.append(x[0])
                     if data['email'] in emails:
                         msg={'response':'Invalid Credential','status':'Registered'}
                         reply=json.dumps(msg)
