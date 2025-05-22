@@ -22,11 +22,11 @@ server.listen()
 
 def handle_connections():
     try:
+        print('Server is listening for connections!!!')
         conn=connect_db()
         if conn:
             crs=conn.cursor()
         while True:
-            print('Server is listening for connections!!!')
             conn, addr = server.accept()
             # data=conn.recv(1024).decode()
             data=recieve_full_data(conn)
@@ -168,7 +168,7 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                         crs.execute("select password from users where email=%s",(data['email'],))
                         password=crs.fetchone()[0]
                         if password == data['password']:
-                            assets=login(data,sock,method,crs)
+                            assets=login(data,crs,sock,method)
                             return assets
                         else:
                             msg={'response':'invalid Credential','status':'Invalid Credential'}
@@ -183,13 +183,13 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                 case '/buy':
                     trans_type=path.replace('/','')
                     data['trans_type']=trans_type
-                    assets=transaction(data,cookie,login)
+                    assets=transaction(data,cookie,crs)
                     return assets
                 case '/sell':
                     print('lame')
                     trans_type=path.replace('/','')
                     data['trans_type']=trans_type
-                    assets=transaction(data,cookie,login)
+                    assets=transaction(data,cookie,crs)
                     return assets
             
     except Exception as error:
@@ -280,7 +280,8 @@ def oauth_user(status,crs):
 
 def logout(cookies,crs):
     crs.execute("select * from session where session_id=%s",(cookies,))
-    cookie_response=crs.fetchone()[0]
+    cookie_response=crs.fetchone()
+    print(cookie_response)
     if cookie_response:
         crs.execute("delete from session where session_id =%s",(cookies,))
         max_age=0
@@ -486,7 +487,7 @@ def transaction(client_data,cookie,crs): # transaction function update the trans
         crs.execute(query,(cookie,))
         user_id=crs.fetchone()[0]
         client_data['user_id']=user_id
-        validate_trans_client_data(client_data)
+        validate_trans_client_data(client_data,crs)
         validate_trans_db_data(crs,client_data)
         crs.execute("select balance from users where users_id=%s",(user_id,))
         user_db_balance=crs.fetchone()
