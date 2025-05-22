@@ -64,11 +64,10 @@ def handle_connections():
             if path == '/auth/google/callback':
                 print('process google called')
                 server_response=process_google_auth(data,conn,crs)
-            elif path in OAUTH_REQUIRED_PATH:    
+            elif path in OAUTH_REQUIRED_PATH:
                 server_response=process_request(path,data,conn,method,isLoggedIn,valid_session_id,crs)
             else:
                 server_response=process_request(path,data,conn,method,isLoggedIn,valid_session_id,crs)
-
             body=server_response.get('body')
             max_age=server_response.get('max_age')
             session_id=server_response.get('session_id')
