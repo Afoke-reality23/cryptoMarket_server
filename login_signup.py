@@ -117,9 +117,13 @@ async def signup(data,crs,sock='',method=''):
             placeholders=",".join(vals)
             print('saving users')
             crs.execute(f'insert into users({cols}) values({placeholders})',values)
+            print('users saved to db')
             session_id=str(uuid.uuid4())
+            print(session_id)
             crs.execute('select users_id from users where email=%s',(data['email'],))
             user_id=crs.fetchone()[0]
+            crs.execute('select * from users')
+            print(crs.fetchall())
             crs.execute("insert into session(session_id,user_id) values(%s,%s)",(session_id,user_id))
             crs.execute('select username from users')
             signedup_username=crs.fetchall()
@@ -128,7 +132,7 @@ async def signup(data,crs,sock='',method=''):
                 signup_username=generate_username(crs)
             transaction_id=generate_trans_id()
             crs.execute('update users set username=%s,balance=%s,transaction_id=%s where users_id=%s',[signup_username,10000,transaction_id,user_id])
-            # print('i am here now')
+            print('i am here now')
 
             if method == 'POST':
                 msg={'response':'signup successfull'}
