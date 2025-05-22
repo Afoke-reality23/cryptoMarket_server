@@ -17,8 +17,8 @@ def response(sock,method,data='',session_id='',max_age=''):# Response route
     if session_id:
         print('session id header sent')
         print(max_age)
-        set_cookie= f"Set-Cookie: session_id={session_id};HttpOnly;Path=/;SameSite=Strict;Domain=127.0.0.1\r\n"
-        del_cookie= f"Set-Cookie: session_id={session_id};HttpOnly;Path=/;SameSite=Strict; max-age={max_age}\r\n"
+        set_cookie= f"Set-Cookie: session_id={session_id};HttpOnly;Path=/;SameSite=None;Secure\r\n"
+        del_cookie= f"Set-Cookie: session_id={session_id};HttpOnly;Path=/;SameSite=None; max-age={max_age}\r\n"
         cookie_header=auth_header()
         cookie=set_cookie if max_age else del_cookie
         header=cookie_header + cookie + '\r\n\r\n'
@@ -33,6 +33,5 @@ def response(sock,method,data='',session_id='',max_age=''):# Response route
         rsp=header + data
     else:
         rsp=header
-    # print(rsp)
     sock.send(rsp.encode('utf-8'))
     sock.shutdown(socket.SHUT_RDWR)
