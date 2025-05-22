@@ -97,6 +97,7 @@ async def signup(data,crs,sock='',method=''):
                 data={'body':reply}
                 return data
         else:
+            print('inside else of sign up')
             column=list(data.keys())
             if column[0] == 'id':
                 column[0]='google_id'
@@ -104,6 +105,7 @@ async def signup(data,crs,sock='',method=''):
             values=list(data.values())
             vals=['%s']*len(values)
             placeholders=",".join(vals)
+            print('saving users')
             crs.execute(f'insert into users({cols}) values({placeholders})',values)
             session_id=str(uuid.uuid4())
             crs.execute('select users_id from users where email=%s',(data['email'],))
