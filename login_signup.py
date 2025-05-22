@@ -116,6 +116,9 @@ async def signup(data,crs,sock='',method=''):
             vals=['%s']*len(values)
             placeholders=",".join(vals)
             print('saving users')
+            print('cols',cols)
+            print('placeholder',placeholders)
+            print('values',values)
             crs.execute(f'insert into users({cols}) values({placeholders})',values)
             print('users saved to db')
             session_id=str(uuid.uuid4())
@@ -151,8 +154,11 @@ async def signup(data,crs,sock='',method=''):
                 )
                 sock.send(msg.encode('utf-8'))
                 print('message sent')
-            
+    except psycopg2.DatabaseError as e:
+        print('Database error:',e)
+        traceback.print_exc()  
     except Exception as error:
+        print('Exception occureds:',repr(error))
         traceback.print_exc()
 
 def login(data,crs,sock,method):
