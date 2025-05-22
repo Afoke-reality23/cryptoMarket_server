@@ -84,19 +84,30 @@ async def signup(data,crs,sock='',method=''):
     print('inside sign up')
     try:
         if len(data) ==1 and list(data.keys())[0] == list(data.keys())[0]:
+            print('inside if')
             ## for manually changing of username
             crs.execute('select username from users')
+            print('step 1')
             usernames=crs.fetchall()
+            print('step 2')
             for x in usernames:
+                print('step 3')
                 if data['username'] in usernames:
+                    print('step 4')
                     msg={'response':'Ooops! That name already taken.Please choose another','status':'unavaliable'}
+                    print('step 5')
                     reply=json.dumps(msg)
+                    print('step 6')
                 else:
+                    print('step 7')
                     msg={'response':'username avaliable','status':'available'}
+                    print('step 8')
                     reply=json.dumps(msg)
+                    print('step 9')
                 data={'body':reply}
                 return data
         else:
+            print('inside else of sign up')
             column=list(data.keys())
             if column[0] == 'id':
                 column[0]='google_id'
@@ -104,6 +115,7 @@ async def signup(data,crs,sock='',method=''):
             values=list(data.values())
             vals=['%s']*len(values)
             placeholders=",".join(vals)
+            print('saving users')
             crs.execute(f'insert into users({cols}) values({placeholders})',values)
             session_id=str(uuid.uuid4())
             crs.execute('select users_id from users where email=%s',(data['email'],))
