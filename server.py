@@ -43,6 +43,7 @@ def handle_connections():
                 continue
             cookies={}
             headers=data.split('\r\n')
+            print(data)
             for header in headers:
                 if header.startswith('Cookie:'):
                     cookie_header=header.replace('Cookie:','')
