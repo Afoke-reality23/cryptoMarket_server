@@ -1,10 +1,11 @@
 import socket
 from urllib.parse import urlparse,parse_qs
 
-def auth_header():
+def auth_header(status='200 OK'):
     headers = (
-                "HTTP/1.1 200 OK\r\n"
+                f"HTTP/1.1 {status} \r\n"
                 "Content-Type: application/json\r\n"
+                "Cache-Control:no-cache\r\n"
                 "Access-Control-Allow-Origin:https://realcryptomarket.netlify.app\r\n"
                 # "Access-Control-Allow-Origin:http://127.0.0.1:5500\r\n"
                 "Access-Control-Allow-Methods: GET,POST,OPTIONS\r\n"
@@ -13,21 +14,19 @@ def auth_header():
                 )
     return headers
 
-def response(sock,method,data='',session_id='',max_age=''):# Response route
+def response(sock,method,data='',session_id='',max_age=None):# Response route
+    print('inside response')
     if session_id:
-        print('session id header sent')
-        print(max_age)
-        set_cookie= f"Set-Cookie: session_id={session_id};HttpOnly;Path=/;SameSite=None;Secure\r\n"
-        del_cookie= f"Set-Cookie: session_id={session_id};HttpOnly;Path=/;SameSite=None; max-age={max_age}\r\n"
-        cookie_header=auth_header()
-        cookie=set_cookie if max_age else del_cookie
-        header=cookie_header + cookie + '\r\n\r\n'
+        cookie_attr="Path=/;HttpOnly;SameSite=None;Secure"
+        if max_age == None:
+            cookie_attr+=f'; Max-Age={max_age}'
+        set_cookie+=f'Set-Cookie:session_id={session_id};{cookie_attr}\r\n'
+        header=auth_header() + set_cookie + '\r\n'
     else:
         if method=='OPTIONS':
-            preflight_header=auth_header().replace('200 OK','204 No Content')
-            header=preflight_header + '\r\n\r\n'
+            header=auth_header('204 No Content') + '\r\n'
         else:
-            header=auth_header() + '\r\n\r\n'
+            header=auth_header() + '\r\n'
     # print(header)
     if data:
         rsp=header + data
