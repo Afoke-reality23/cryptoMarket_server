@@ -10,40 +10,45 @@ import asyncio
 import psycopg2
 from login_signup import process_google_auth,signup,login
 from custom import database_column_value_extractor
+import threading
 import os
 
-
-server = socket.socket()
-port = int(os.environ.get('PORT',5000))
-# port=1998
-server_IP = ''  
-server.bind((server_IP, port))
-server.listen()
-
-def handle_connections():
+def main():
     try:
+        server = socket.socket()
+        port = int(os.environ.get('PORT',5000))
+        # port=1998
+        server_IP = ''  
+        server.bind((server_IP, port))
+        server.listen()
         print('Server is listening for connections!!!')
+        while True:
+            conn, addr = server.accept()
+            print(f'user with ip{addr[0]} | and port {addr[1]} is connected')
+            clientThreading=threading.Thread(target=handle_connections,args=(conn,))
+            clientThreading.start()
+    except Exception as err:
+        traceback.print_exc()
+
+
+
+def handle_connections(client_sock):
+    try:
         conn=connect_db()
         if conn:
             crs=conn.cursor()
-        while True:
-            conn, addr = server.accept()
-            # data=conn.recv(1024).decode()
-            data=recieve_full_data(conn)
-            if data is None or data.strip()== '':
-                continue
+        data=recieve_full_data(client_sock)
+        if data is not None:
             method=data.split('\r\n')[0]
             parse_url=urlparse(method)
             query=parse_url.path
             path_method=query.split(' ')
             path=path_method[1]
             method=path_method[0]
-            if data.startswith('OPTIONS') or  data.startswith('HEAD'):
-                response(conn,method)
-                continue
+            # if data.startswith('OPTIONS') or  data.startswith('HEAD'):
+            #     response(conn,method)
             cookies={}
             headers=data.split('\r\n')
-            print(data)
             for header in headers:
                 if header.startswith('Cookie:'):
                     cookie_header=header.replace('Cookie:','')
@@ -61,50 +66,58 @@ def handle_connections():
                 '/buy'
                 '/profile'
                 '/transaction'
+                '/market-listing'
             )
             if path == '/auth/google/callback':
                 print('process google called')
-                server_response=process_google_auth(data,conn,crs)
+                server_response=process_google_auth(data,client_sock,crs)
             elif path in OAUTH_REQUIRED_PATH:
-                server_response=process_request(path,data,conn,method,isLoggedIn,valid_session_id,crs)
+                server_response=process_request(path,data,client_sock,method,isLoggedIn,valid_session_id,crs)
             else:
-                server_response=process_request(path,data,conn,method,isLoggedIn,valid_session_id,crs)
+                server_response=process_request(path,data,client_sock,method,isLoggedIn,valid_session_id,crs)
             body=server_response.get('body')
             max_age=server_response.get('max_age')
             session_id=server_response.get('session_id')
             if session_id:
-                response(conn,method,body,session_id,max_age)
+                response(client_sock,method,body,session_id,max_age)
             else:
-                response(conn,method,body)
+                response(client_sock,method,body)
     except (Exception,KeyboardInterrupt) as error:
         traceback.print_exc()
     finally:
         conn.close()
 def recieve_full_data(conn):
     try:
-        request=b''
-        while b'\r\n\r\n' not in request:
-            chunk=conn.recv(1024)
-            if not chunk:
-                return None
-            request+=chunk
-        header_bytes,remaining_chunk=request.split(b'\r\n\r\n',1)
-        headers=header_bytes.decode('utf-8')
-        content_length=0
-        for line in headers.split('\r\n'):
-            if line.lower().startswith('content-length'):
-                content_length=int(line.split(':',1)[1].strip())
-                break
-        body=remaining_chunk
-        while len(body) < content_length:
-            chunk=conn.recv(1024)
-            if not chunk:
-                print('empty chunk')
-                break
-            body+=chunk
-        full_request=headers + '\r\n\r\n' + body.decode('utf-8')
-        # print(full_request)
-        return full_request
+        no=0
+        while True:
+            request=b''
+            while b'\r\n\r\n' not in request:
+                chunk=conn.recv(1024)
+                if not chunk:
+                    return None
+                request+=chunk
+            header_bytes,remaining_chunk=request.split(b'\r\n\r\n',1)
+            headers=header_bytes.decode('utf-8')
+            content_length=0
+            for line in headers.split('\r\n'):
+                if line.lower().startswith('content-length'):
+                    content_length=int(line.split(':',1)[1].strip())
+                    break
+            body=remaining_chunk
+            while len(body) < content_length:
+                chunk=conn.recv(1024)
+                if not chunk:
+                    print('empty chunk')
+                    break
+                body+=chunk
+            full_request=headers + '\r\n\r\n' + body.decode('utf-8')
+            method=urlparse(full_request.splitlines()[0]).path.split(' ')[0]
+            if method =='OPTIONS':
+                response(conn,method)
+                continue
+            no=no + 1
+            print(no)
+            return full_request
     except Exception:
         traceback.print_exc()
 def process_request(path,request,sock,method,status,cookie,crs):#process all http request
@@ -119,6 +132,7 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
             table_name=parse_url.path.replace('/'," ").strip()
             query_param=parse_qs(parse_url.query)
             data={'table_name':table_name,'columns':{k:v[0] for k,v in query_param.items()}}
+            print(path)
             match path:
                 case '/transaction':
                      assets=get_users_transation(cookie,crs)
@@ -139,6 +153,9 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                     assets=oauth_user(status,crs)
                 case '/logout':
                     assets=logout(cookie,crs)
+                case '/market-listing':
+                    asset=get_listed_asset(crs)
+                    return asset
             return assets
         else:
             data=json.loads(body)
@@ -191,8 +208,48 @@ def process_request(path,request,sock,method,status,cookie,crs):#process all htt
                     data['trans_type']=trans_type
                     assets=transaction(data,cookie,crs)
                     return assets
+                case '/market_listing':
+                    asset=save_listed_asset(data,cookie,crs)
+                    return asset
             
     except Exception as error:
+        traceback.print_exc()
+
+def get_listed_asset(crs):
+    try:
+        print('hi')
+        crs.execute("""
+                    select
+                        name,
+                        symbol,
+                        a.id,
+                        image,
+                        set_price,
+                        m.quantity
+                    from market_list m
+                    join assets a on a.id=m.asset_id
+                    where status=%s
+                    """,('listed',))
+        db_response=crs.fetchall()
+        listed_asset=[[float(y) if isinstance(y,Decimal) else y for y in x] for x in db_response]
+        reply=json.dumps(listed_asset)
+        data={'body':reply}
+        return data
+    except Exception:
+        traceback.print_exc()
+def save_listed_asset(data,cookie,crs):
+    try:
+        crs.execute('select user_id from session where session_id=%s',(cookie,))
+        user_id=crs.fetchone()[0]
+        data['seller_id']=user_id
+        print(data)
+        db_data=database_column_value_extractor(data)
+        crs.execute(f'insert into market_list({db_data[0]}) values({db_data[1]})',db_data[2])
+        confirmation={'status':'success'}
+        reply=json.dumps(confirmation)
+        data={'body':reply}
+        return data
+    except Exception:
         traceback.print_exc()
 
 def get_searched_assets(data,crs):
@@ -415,10 +472,10 @@ def get_users_transation(cookie,crs):#Done with this for now REFACTOR later
 
 def buy_asset(buy_data,crs,balance):
     db_data=database_column_value_extractor(buy_data)
-    columns=db_data['columns']
-    placeholders=db_data['placeholder']
-    insert=f"INSERT INTO transaction({columns}) VALUES({placeholders})"
-    crs.execute(insert,db_data['values'])
+    # columns=db_data['columns']
+    # placeholders=db_data['placeholder']
+    insert=f"INSERT INTO transaction({db_data[0]}) VALUES({db_data[1]})"
+    crs.execute(insert,db_data[2])
 
     portfolio=f"""
             INSERT INTO portfolio(user_id,asset_id,avg_price,quantity,total_value)
@@ -453,10 +510,10 @@ def sell_asset(sell_data,crs,balance,quantity):
     profit_data={'amount':sell_data['processing_speed'],'processing_speed':processing_speed}
     del sell_data['processing_speed']
     prof_data=database_column_value_extractor(profit_data)
-    prof_columns=prof_data['columns']
-    prof_placeholder=prof_data['placeholder']
-    prof_values=prof_data['values']
-    crs.execute(f'insert into profit({prof_columns}) values({prof_placeholder})',prof_values)
+    # prof_columns=prof_data['columns']
+    # prof_placeholder=prof_data['placeholder']
+    # prof_values=prof_data['values']
+    crs.execute(f'insert into profit({prof_data[0]}) values({prof_data[1]})',prof_data[2])
     crs.execute('select transaction_id from users')
     all_wallet_id=[wallet_id[0] for wallet_id in crs.fetchall()]
     if sell_data['reciever_wallet'] not in all_wallet_id:
@@ -470,11 +527,11 @@ def sell_asset(sell_data,crs,balance,quantity):
     reciever_data['trans_type']='buy'
     buy_asset(reciever_data,crs,float(reciever_balance))
     db_data=database_column_value_extractor(sell_data)
-    columns=db_data['columns']
-    placeholder=db_data['placeholder']
-    values=db_data['values']
-    insert=f"INSERT INTO transaction({columns}) VALUES({placeholder})"
-    crs.execute(insert,values)
+    # columns=db_data['columns']
+    # placeholder=db_data['placeholder']
+    # values=db_data['values']
+    insert=f"INSERT INTO transaction({db_data[0]}) VALUES({db_data[1]})"
+    crs.execute(insert,db_data[2])
     quantity_balance=float(quantity[0])- sell_data['trans_quantity']
     crs.execute(" update portfolio set quantity=%s where user_id=%s and asset_id=%s",[quantity_balance,sell_data['user_id'],sell_data['asset_id']])
     crs.execute(f'update users set balance =%s where users_id=%s',(balance,sell_data['user_id']))
@@ -597,4 +654,5 @@ def validate_trans_db_data(crs,val_db_data): # validate data from the transactio
 
 # threading.Timer(300,update_assets).start()
 
-handle_connections()
+if __name__=='__main__':
+    main()

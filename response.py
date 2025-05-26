@@ -1,6 +1,5 @@
 import socket
-from urllib.parse import urlparse,parse_qs
-
+import traceback
 def auth_header(status='200 OK'):
     headers = (
                 f"HTTP/1.1 {status}\r\n"
@@ -13,25 +12,30 @@ def auth_header(status='200 OK'):
                 )
     return headers
 
-def response(sock,method,data='',session_id='',max_age=''):# Response route
-    if session_id:
-        print('session id header sent')
-        print(max_age)
-        cookie_attr='HttpOnly;Path=/;SameSite=None;Secure'
-        if max_age==0:
-            cookie_attr+=f'; Max-Age={max_age}'
-        set_cookie= f"Set-Cookie: session_id={session_id};{cookie_attr}\r\n"
-        header=auth_header() + set_cookie + '\r\n\r\n'
-    else:
-        if method=='OPTIONS':
-            preflight_header=auth_header('204 No Content')
-            header=preflight_header + '\r\n\r\n'
+def response(sock,method='',data='',session_id='',max_age=''):# Response route
+    try:
+        if session_id:
+            print('session id header sent')
+            print(max_age)
+            cookie_attr='HttpOnly;Path=/;SameSite=None;Secure'
+            if max_age==0:
+                cookie_attr+=f'; Max-Age={max_age}'
+            set_cookie= f"Set-Cookie: session_id={session_id};{cookie_attr}\r\n"
+            header=auth_header() + set_cookie + '\r\n\r\n'
         else:
-            header=auth_header() + '\r\n\r\n'
-    # print(header)
-    if data:
-        rsp=header + data
-    else:
-        rsp=header
-    sock.send(rsp.encode('utf-8'))
-    sock.shutdown(socket.SHUT_RDWR)
+            if method=='OPTIONS':
+                preflight_header=auth_header('204 No Content')
+                header=preflight_header + '\r\n\r\n'
+            else:
+                header=auth_header() + '\r\n\r\n'
+        # print(header)
+        if data:
+            rsp=header + data
+        else:
+            rsp=header
+        # print(rsp)
+        sock.sendall(rsp.encode('utf-8'))
+        sock.shutdown(socket.SHUT_WR)
+        sock.close()
+    except Exception:
+        traceback.print.exe()

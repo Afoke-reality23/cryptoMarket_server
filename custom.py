@@ -13,12 +13,12 @@ def database_column_value_extractor(data):
     keys=",".join(list(data.keys()))
     values=list(data.values())
     placholder=','.join(['%s']*len(data.values()))
-    data={
-        'columns':keys,
-        'values':values,
-        'placeholder':placholder
-    }
-    return data
+    # data={
+    #     'columns':keys,
+    #     'values':values,
+    #     'placeholder':placholder
+    # }
+    return keys,placholder,values
    
 
 def connect_db(): # Connect to the data
