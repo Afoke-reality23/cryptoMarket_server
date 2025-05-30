@@ -17,9 +17,11 @@ def config():
     db={
         'user':os.getenv('user'),
         'host':os.getenv('host'),
-        'database':os.getenv('database'),
+        'dbname':os.getenv('dbname'),
         'password':os.getenv('password'),
     }
     # print(db)
+    # print("user",repr(os.environ.get('user')))
+    # print("dbname",repr(os.environ.get('dbname')))
     return db
 # config()
