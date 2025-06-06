@@ -537,7 +537,7 @@ async def sell_asset(sell_data,crs,balance,quantity,cookie):
         status=await transaction(buyer_data,cookie,crs)
         response=json.loads(status['body'])
         if 'error' in  response:
-            raise ValueError(f'Buyer transaction failed {response['error']}')
+            raise ValueError(f"Buyer transaction failed {response['error']}")
     sell_data=dict(buyer_data)
     sell_data['user_id']=seller_id
     sell_data['trans_type']='sell'
