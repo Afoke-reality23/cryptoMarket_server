@@ -12,7 +12,6 @@ from custom import generate_trans_id
 from dotenv import load_dotenv
 import os
 
-
 load_dotenv()
 def process_google_auth(data,sock,cursor):
     request_line=data.splitlines()[0]
@@ -121,7 +120,7 @@ async def signup(data,crs,sock='',method=''):
             else:
                 msg=(
                     'HTTP/1.1 302 Found\r\n'
-                    # 'Location: https://realcryptomarket.netlify.app/index.html\r\n'
+                    'Location: https://realcryptomarket.netlify.app/index.html\r\n'
                     # 'Access-Control-Allow-Origin:http://127.0.0.1:5500\r\n'
                     'Content-Length:0\r\n'
                     # 'Access-Control-Allow-Credentials:true\r\n'

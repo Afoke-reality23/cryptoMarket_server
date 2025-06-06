@@ -1,23 +1,21 @@
-import socket
 import json
 from urllib.parse import urlsplit,parse_qs,urlparse
 from datetime import datetime
 from decimal import Decimal
 import traceback
-from custom import connect_db
+from custom import connect_db,recieve_full_data,meta_data
 from response import response
+# import websockets
 import asyncio
 import psycopg
 from login_signup import process_google_auth,signup,login
 from custom import database_column_value_extractor
-import threading
 import uuid
+from uuid import UUID
 import os
 import sys
-
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
 async def main():
     try:
         port = int(os.environ.get('PORT',1998))
@@ -25,86 +23,35 @@ async def main():
         print(f'server is running on port:{port}')
         async with server:
             await server.serve_forever()
+        
     except Exception as err:
         traceback.print_exc()
-
-
 
 async def handle_connections(reader,writer):
     try:
         data=await recieve_full_data(reader,writer)
-        if data is not None:
-            method=data.split('\r\n')[0]
-            parse_url=urlparse(method)
-            query=parse_url.path
-            path_method=query.split(' ')
-            path=path_method[1]
-            method=path_method[0]
-            cookies={}
-            headers=data.split('\r\n')
-            for header in headers:
-                if header.startswith('Cookie:'):
-                    cookie_header=header.replace('Cookie:','')
-                    cookie_list=cookie_header.split(';')
-                    cookie_tuple=list(tuple(tup.split('=')) for tup in cookie_list)
-                    cleaned_cookie=[(k.strip(),v.strip()) for k,v in cookie_tuple]
-                    cookies.update(cleaned_cookie)
-            isLoggedIn='loggedIn' if cookies.get('session_id') else 'not_logged_in'
-            valid_session_id=cookies.get('session_id')
-            OAUTH_REQUIRED_PATH=(
-                '/frontend/oauth/login/password'
-                '/frontend/oauth/create-account/password'
-                '/oauth/status'
-                '/logout'
-                '/buy'
-                '/profile'
-                '/transaction'
-                '/market-listing'
-                '/buy-listed'
-                '/chat'
-            )
+        parsed_data=meta_data(data)
+        if parsed_data and not all(x is None for x in parsed_data):
             conn=await connect_db()
             async with conn:
                 async with conn.cursor() as crs:
-                    if path == '/auth/google/callback':
-                        print('process google called')
+                    if parsed_data[1] == '/auth/google/callback':
                         server_response=process_google_auth(data,writer,crs)
-                    elif path in OAUTH_REQUIRED_PATH:
-                        server_response=await process_request(path,data,writer,method,isLoggedIn,valid_session_id,crs)
+                    elif parsed_data[1] in parsed_data[5]:
+                        server_response=await process_request(parsed_data[1],parsed_data[0],writer,parsed_data[2],parsed_data[4],parsed_data[3],crs)
                     else:
-                        server_response=await process_request(path,data,writer,method,isLoggedIn,valid_session_id,crs)
+                        server_response=await process_request(parsed_data[1],parsed_data[0],writer,parsed_data[2],parsed_data[4],parsed_data[3],crs)
+                        # server_response=await process_request(path,data,writer,method,isLoggedIn,valid_session_id,crs)
                     body=server_response.get('body')
                     max_age=server_response.get('max_age')
                     session_id=server_response.get('session_id')
                     if session_id:
-                        await response(writer,method,body,session_id,max_age)
+                        await response(writer,max_age,data=body,session_id=session_id,)
                     else:
-                        await response(writer,method,body)
+                        await response(writer,data=body)
     except (Exception,KeyboardInterrupt) as error:
         traceback.print_exc()
 
-
-async def recieve_full_data(reader,writer):
-    try:
-        headers=await reader.readuntil(b'\r\n\r\n')
-        method=urlsplit(headers).path.split(b' ')[0]
-        line_headers=headers.split(b'\r\n')
-        if method == b'OPTIONS':
-            await response(writer,method)
-            return
-        content_length=0
-        for line in line_headers:
-            if line.lower().startswith(b'content-length:'):
-                content_length=int(line.split(b':',1)[1].strip())
-                break
-        body=b''
-        if content_length > 0:
-            body=await reader.readexactly(content_length)
-        request=headers + body
-        full_request=request.decode('utf-8')
-        return full_request
-    except Exception:
-        traceback.print_exc()
 async def process_request(path,request,sock,method,status,cookie,crs):#process all http request
     try:
         headers,body=request.split('\r\n\r\n',1)
@@ -112,12 +59,11 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
             if not headers:
                 return
             params=urlsplit(headers)
+            get_data={}
             if params.query:
                 data=parse_qs(params.query)
-                get_data={}
                 for k,v in data.copy().items():
                     get_data[k]=v[0].split(' ',1)[0]
-                print(get_data)
             match path:
                 case '/transaction':
                      assets=await get_users_transation(cookie,crs)
@@ -140,7 +86,10 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
                 case '/market-listing':
                     assets=await get_listed_asset(crs)
                 case '/chat':
-                    assets=await fetch_chat(cookie,crs,get_data['chat_id'])
+                    if 'chat_id' in get_data:
+                        assets=await fetch_chat(cookie,crs,get_data['chat_id'])
+                    else:
+                        assets=await fetch_chat(cookie,crs)
             return assets
         else:
             data=json.loads(body)
@@ -182,7 +131,6 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
                     status=await transaction(data,cookie,crs)
                     # return status
                 case '/sell':
-                    print('lame')
                     trans_type=path.replace('/','')
                     data['trans_type']=trans_type
                     status=await transaction(data,cookie,crs)
@@ -216,12 +164,9 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
                         wallet=await crs.fetchone()
                         data={'user_id':int(data[0]),'asset_id':data[1],'trans_quantity':float(data[2]),'trans_price':float(data[3]),'processing_speed':float(data[4]),'trans_type':'sell','reciever_wallet':wallet[0]}
                         status=await transaction(data,cookie,crs)
-                        print('status >>>>>>>>.',status)
                         response=json.loads(status['body'])
                         if 'status'in response:
-                            print('delete listed asset')
                             await crs.execute('delete from market_list where seller_id=%s and asset_id=%s',(float(data['user_id']),float(data['asset_id'])))
-
             return status
     except psycopg.DatabaseError as error:
         print(error)
@@ -229,19 +174,56 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
         traceback.print_exc()
 
 
-async def fetch_chat(cookie,crs,chat_id):
+async def fetch_chat(cookie,crs,chat_id=''):
     try:
         await crs.execute('select user_id from session where session_id=%s',(cookie,))
         user_id=await crs.fetchone()
-        await crs.execute('select seller_id,buyer_id from chats where chat_id=%s',(chat_id,))
-        ids=await crs.fetchone()
-        if user_id[0] ==ids[0]:
-            await crs.execute('select seller_msg,buyer_msg from chats where seller_id=%s and chat_id=%s',(user_id[0],chat_id))
+        if chat_id:
+            # await crs.execute("""
+            #                 select
+            #                     case
+            #                         when seller_id=%s 
+            #                             then buyer_id
+            #                         else seller_id
+            #                     end as other_user_id,
+            #                     seller_msg,
+            #                     buyer_msg
+            #                 from chats
+            #                 where (seller_id=%s or buyer_id=%s)
+            #                 and chat_id=%s
+            #                 """,(user_id[0],user_id[0],user_id[0],chat_id))
+            await crs.execute('select seller_id,buyer_id,message from chats where (seller_id=%s or buyer_id=%s) and chat_id=%s',(user_id[0],user_id[0],chat_id))
+            messages=await crs.fetchone()
+            messages={
+                'seller_id':messages[0],
+                'buyer_id':messages[1],
+                'user_id':user_id[0],
+                'message':messages[2]
+            }
+            reply=json.dumps(messages)
+            data={'body':reply}
         else:
-            await crs.execute('select seller_msg,buyer_msg from chats where buyer_id=%s and chat_id=%s',(user_id[0],chat_id))
-        messages=await crs.fetchone()
-        reply=json.dumps(messages)
-        data={'body':reply}
+            await crs.execute("""
+                              select 
+                                chat_id,
+                                seller_id,
+                                buyer_id,
+                                last_msg
+                              from chats where seller_id=%s or buyer_id=%s"""
+                              ,(user_id[0],user_id[0]))
+            db_chat=await crs.fetchall()
+            chat_list=[[y for y in x] for x in db_chat]
+            for x in chat_list:
+                if user_id[0]==x[1]:
+                    await crs.execute('select username from users where users_id=%s',(x[2],))
+                    username=await crs.fetchone()
+                    x.append(username[0])
+                else:
+                    await crs.execute('select username from users where users_id=%s',(x[1],))
+                    username=await crs.fetchone()
+                    x.append(username[0])
+            chat_list=json.dumps(chat_list,default=lambda o:str(o) if isinstance(o,UUID) else o)
+            data={'body':chat_list}
         return data
     except Exception:
         traceback.print_exc()
@@ -591,7 +573,6 @@ async def transaction(client_data,cookie,crs): # transaction function update the
             else max(user_balance_check - client_data['trans_price'],0)
             )
         if client_data['trans_type']=='buy':
-            print('ayo')
             if client_data['trans_price'] > user_balance_check:
                 raise ValueError('insufficient balance')
             await buy_asset(client_data,crs,portfolio_balance)

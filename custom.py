@@ -1,12 +1,16 @@
-from parserdb import config
 import psycopg
+from parserdb import config
 import asyncio
 import httpx
 import traceback
 from datetime import datetime
 import random
+from urllib.parse import urlsplit,parse_qs
 import os
-import urllib.parse as up
+from response import response
+from dotenv import load_dotenv
+from pathlib import Path
+
 
 def database_column_value_extractor(data):
     keys=",".join(list(data.keys()))
@@ -80,3 +84,63 @@ async def generate_username(crs):
     else:
         return username
 
+async def recieve_full_data(reader,writer):
+    try:
+        headers=await reader.readuntil(b'\r\n\r\n')
+        method=urlsplit(headers).path.split(b' ')[0]
+        line_headers=headers.split(b'\r\n')
+        if method == b'OPTIONS':
+            await response(writer,method)
+            return
+        content_length=0
+        for line in line_headers:
+            if line.lower().startswith(b'content-length:'):
+                content_length=int(line.split(b':',1)[1].strip())
+                break
+        body=b''
+        if content_length > 0:
+            body=await reader.readexactly(content_length)
+        request=headers + body
+        full_request=request.decode('utf-8')
+        return full_request
+    except Exception:
+        traceback.print_exc()
+
+
+def meta_data(data):
+    method=path=isLoggedIn=valid_session_id=cookies=OAUTH_REQUIRED_PATH=None
+    
+    try:
+        if data is not None:
+                cookies={}
+                OAUTH_REQUIRED_PATH=(
+                    '/frontend/oauth/login/password'
+                    '/frontend/oauth/create-account/password'
+                    '/oauth/status'
+                    '/logout'
+                    '/buy'
+                    '/profile'
+                    '/transaction'
+                    '/market-listing'
+                    '/buy-listed'
+                    '/chat'
+                    '/texting'
+                )
+                main_header,body=data.split('\r\n\r\n',1)
+                header=urlsplit(main_header).path.split(' ')
+                method=header[0]
+                path=header[1]
+                headers=data.splitlines()
+                for header in headers:
+                    if header.startswith('Cookie:'):
+                        cookie_header=header.replace('Cookie:','')
+                        cookie_list=cookie_header.split(';')
+                        cookie_tuple=list(tuple(tup.split('=')) for tup in cookie_list)
+                        cleaned_cookie=[(k.strip(),v.strip()) for k,v in cookie_tuple]
+                        cookies.update(cleaned_cookie)
+                isLoggedIn='loggedIn' if cookies.get('session_id') else 'not_logged_in'
+                valid_session_id=cookies.get('session_id')
+                
+        return data,path,method,valid_session_id,isLoggedIn,OAUTH_REQUIRED_PATH,cookies
+    except Exception:
+        traceback.print_exc()

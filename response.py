@@ -4,8 +4,8 @@ def auth_header(status='200 OK'):
     headers = (
                 f"HTTP/1.1 {status}\r\n"
                 "Content-Type: application/json\r\n"
-                # "Access-Control-Allow-Origin:https://realcryptomarket.netlify.app\r\n"
-                "Access-Control-Allow-Origin:http://127.0.0.1:5500\r\n"
+                "Access-Control-Allow-Origin:https://realcryptomarket.netlify.app\r\n"
+                # "Access-Control-Allow-Origin:http://127.0.0.1:5500\r\n"
                 "Access-Control-Allow-Methods: GET,POST,OPTIONS\r\n"
                 "Access-Control-Allow-Headers: Content-Type\r\n"
                 "Access-Control-Allow-Credentials:true\r\n"
@@ -15,8 +15,6 @@ def auth_header(status='200 OK'):
 async def response(writer,method='',data='',session_id='',max_age=''):# Response route
     try:
         if session_id:
-            print('session id header sent')
-            print(max_age)
             cookie_attr='HttpOnly;Path=/;SameSite=None;Secure'
             if max_age==0:
                 cookie_attr+=f'; Max-Age={max_age}'
