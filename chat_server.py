@@ -76,7 +76,7 @@ async def health(request):
 
 async def main():
     port=int(os.environ.get('PORT',1991))
-    ws_server=websockets.serve(handler,'0.0.0.0',port)
+    ws_server=await websockets.serve(handler,'0.0.0.0',port)
     app=web.Application()
     app.router.add_get("/",health)
     runner=web.AppRunner(app)
@@ -84,7 +84,6 @@ async def main():
     site=web.TCPSite(runner,'0.0.0.0',8080)
     await site.start()
     print(f'chat server is running on port :{port}')
-    await ws_server
     await asyncio.Future()
 
     
