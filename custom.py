@@ -102,6 +102,7 @@ async def recieve_full_data(reader,writer):
             body=await reader.readexactly(content_length)
         request=headers + body
         full_request=request.decode('utf-8')
+        print(full_request)
         return full_request
     except Exception:
         traceback.print_exc()
