@@ -2,4 +2,5 @@ requests==2.31.0
 httpx==0.24.1
 psycopg[binary]
 websockets
+aiohttp
 dotenv

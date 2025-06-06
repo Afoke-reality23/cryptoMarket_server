@@ -72,9 +72,11 @@ async def handler(websocket):
 
 async def health(request):
     return web.Response(text='OK')
+
+
 async def main():
     port=int(os.environ.get('PORT',1991))
-    ws_server=websockets.serve(handler,'0.0.0.0',port):
+    ws_server=websockets.serve(handler,'0.0.0.0',port)
     app=web.Application()
     app.router.add_get("/",health)
     runner=web.AppRunner(app)
@@ -85,4 +87,5 @@ async def main():
     await ws_server
     await asyncio.Future()
 
+    
 asyncio.run(main())
