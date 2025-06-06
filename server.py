@@ -103,6 +103,8 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
                         reply=json.dumps(msg)
                         status={'body':reply}
                     else:
+                        print('about to sign up')
+                        print(data)
                         status=await signup(data,crs,sock,method)
                 case'/frontend/oauth/login/password':
                     await crs.execute('select email from users')

@@ -21,7 +21,7 @@ async def response(writer,method='',data='',session_id='',max_age=''):# Response
             set_cookie= f"Set-Cookie: session_id={session_id};{cookie_attr}\r\n"
             header=auth_header() + set_cookie + '\r\n\r\n'
         else:
-            if method==b'OPTIONS':
+            if method==b'OPTIONS' or b'HEAD':
                 preflight_header=auth_header('204 No Content')
                 header=preflight_header + '\r\n\r\n'
                 # return header
