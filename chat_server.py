@@ -7,6 +7,8 @@ from aiohttp import web
 import sys
 from custom import connect_db
 from datetime import datetime,timezone
+
+print("script started >>>>>>",flush =True)
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -78,19 +80,22 @@ async def health(request):
 
 
 async def main():
-    print("main called about to begin")
-    port=int(os.environ.get('PORT',8080))
-    print('port >>>>>>>>>>>',port)
-    app=web.Application()
-    app.router.add_get("/",health)
-    app.router.add_get("/chat",handler)
-    runner=web.AppRunner(app)
-    await runner.setup()
-    site=web.TCPSite(runner,'0.0.0.0',port)
-    await site.start()
-    print(f'chat server is running on port :{port}')
+    try:
+        print("main called about to begin",flush=True)
+        port=int(os.environ.get('PORT'))
+        print('port >>>>>>>>>>>',port,flush=True)
+        app=web.Application()
+        app.router.add_get("/",health)
+        app.router.add_get("/chat",handler)
+        runner=web.AppRunner(app)
+        await runner.setup()
+        site=web.TCPSite(runner,'0.0.0.0',port)
+        await site.start()
+        print(f'chat server is running on port :{port}',flush=True)
 
-    await asyncio.Future()
+        await asyncio.Future()
+    except Exception:
+        traceback.print_exc()
 
     
 asyncio.run(main())
