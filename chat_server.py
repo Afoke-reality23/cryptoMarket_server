@@ -33,7 +33,7 @@ async def store_users(client_id,websocket):
                 active_users[client_id]=websocket
         elif active_users[client_id] != websocket:
             active_users[client_id]=websocket
-        # print(active_users)
+        print(active_users)
     except Exception:
         traceback.print_exc()
 
@@ -78,7 +78,7 @@ async def health(request):
 
 
 async def main():
-    port=int(os.environ.get('PORT',1991))
+    port=int(os.environ.get('PORT',8080))
     app=web.Application()
     app.router.add_get("/",health)
     app.router.add_get("/chat",handler)
