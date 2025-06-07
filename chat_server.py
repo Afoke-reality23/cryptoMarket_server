@@ -28,14 +28,13 @@ async def save_message(msg,chat_id,last_msg):
                                       ''',(json.dumps(msg),json.dumps(last_msg),chat_id))
     except Exception:
         traceback.print_exc()
-async def store_users(deserialized_mssg,websocket):
+async def store_users(client_id,websocket):
     try:
-        if deserialized_mssg['userId'] not in active_users:
-                active_users[deserialized_mssg['userId']]=websocket
-                await websocket.send(json.dumps(deserialized_mssg))
-        elif active_users[deserialized_mssg['userId']] != websocket:
-            active_users[deserialized_mssg['userId']]=websocket
-            await websocket.send(json.dumps(deserialized_mssg))
+        if client_id not in active_users:
+                active_users[client_id]=websocket
+        elif active_users[client_id] != websocket:
+            active_users[client_id]=websocket
+        # print(active_users)
     except Exception:
         traceback.print_exc()
 
@@ -56,19 +55,23 @@ async def extract_db_data(data):
         traceback.print_exc()    
 
     # return user_id,chat_id,message
-async def handler(websocket):
+async def handler(request):
+    ws=web.WebSocketResponse()
     try:
-        async for message in websocket:
-            deserialized_mssg=json.loads(message)
-            if 'userId' in deserialized_mssg:
-                await store_users(deserialized_mssg,websocket)
+        user_id=request.query.get('user_id')
+        await store_users(user_id,ws)
+        await ws.prepare(request)
+        async for message in ws:
+            deserialized_mssg=json.loads(message.data)
             if 'recieverId' in deserialized_mssg:
-                await extract_db_data(deserialized_mssg['message'])
                 if deserialized_mssg['recieverId'] in active_users:
                     reciever_websocket=active_users[deserialized_mssg['recieverId']]
-                    await reciever_websocket.send(json.dumps(deserialized_mssg['message']))
+                    await reciever_websocket.send_str(json.dumps(deserialized_mssg['message']))
+                    await extract_db_data(deserialized_mssg['message'])
     except Exception:
         traceback.print_exc()
+    finally:
+        return ws
 
 async def health(request):
     print(request)
@@ -77,15 +80,16 @@ async def health(request):
 
 async def main():
     port=int(os.environ.get('PORT',1991))
+    app=web.Application()
+    app.router.add_get("/",health)
+    app.router.add_get("/chat",handler)
+    runner=web.AppRunner(app)
+    await runner.setup()
+    site=web.TCPSite(runner,'0.0.0.0',port)
+    await site.start()
     print(f'chat server is running on port :{port}')
-    async with websockets.serve(handler,'0.0.0.0',port):
-        app=web.Application()
-        app.router.add_get("/",health)
-        runner=web.AppRunner(app)
-        await runner.setup()
-        site=web.TCPSite(runner,'0.0.0.0',8080)
-        await site.start()
-        await asyncio.Future()
+
+    await asyncio.Future()
 
     
 asyncio.run(main())
