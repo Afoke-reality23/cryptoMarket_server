@@ -57,11 +57,15 @@ async def extract_db_data(data):
 
     # return user_id,chat_id,message
 async def handler(request):
+    print(request)
     ws=web.WebSocketResponse()
     try:
+        print(ws)
         user_id=request.query.get('user_id')
+        print('inside handler')
         await store_users(user_id,ws)
         await ws.prepare(request)
+        print('after prepare')
         async for message in ws:
             deserialized_mssg=json.loads(message.data)
             if 'recieverId' in deserialized_mssg:
