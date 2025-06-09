@@ -3,7 +3,7 @@ from urllib.parse import urlsplit,parse_qs,urlparse
 from datetime import datetime
 from decimal import Decimal
 import traceback
-from custom import connect_db,recieve_full_data,meta_data
+from custom import connect_db,recieve_full_data,meta_data,check_unread_message
 from response import response
 # import websockets
 import asyncio
@@ -46,7 +46,7 @@ async def handle_connections(reader,writer):
                     max_age=server_response.get('max_age')
                     session_id=server_response.get('session_id')
                     if session_id:
-                        await response(writer,max_age,data=body,session_id=session_id,)
+                        await response(writer,max_age=max_age,data=body,session_id=session_id,)
                     else:
                         await response(writer,data=body)
     except (Exception,KeyboardInterrupt) as error:
@@ -90,6 +90,8 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
                         assets=await fetch_chat(cookie,crs,get_data['chat_id'])
                     else:
                         assets=await fetch_chat(cookie,crs)
+                case '/chat/unread-message':
+                    assets=await get_unread_message(cookie,crs)
             return assets
         else:
             data=json.loads(body)
@@ -144,7 +146,10 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
                         chat_id=str(uuid.uuid4())
                         await crs.execute('update market_list set state=%s,chat_id=%s,buyer_id=%s where seller_id=%s and asset_id=%s',(data['status'],chat_id,buyer_id[0],data['sellerId'],data['asset_id']))
                         await crs.execute('insert into chats(chat_id,seller_id,buyer_id) values(%s,%s,%s)',(chat_id,data['sellerId'],buyer_id[0]))
-                        reply={'chat_id':chat_id}
+                        await crs.execute('select username from users where users_id=%s',(data['sellerId'],))
+                        seller_username=await crs.fetchone()
+                        seller_username=seller_username[0]
+                        reply={'chat_id':chat_id,'username':seller_username}
                         data=json.dumps(reply)
                         status={'body':data}
                     else:
@@ -152,9 +157,15 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
                     # return asset
                 case '/buy-listed':
                     if data.get('status') == 'Negotiating':
-                        await crs.execute('update market_list set status=%s where seller_id=%s and asset_id=%s',(data['status'],data['sellerId'],data['asset_id']))
+                        await crs.execute('update market_list set state=%s where seller_id=%s and asset_id=%s',(data['status'],data['sellerId'],data['asset_id']))
                         status={'body':{'status':'successful'}}
                     else:
+                        if data.get('chat_id'):
+                            await crs.execute('select asset_id from market_list where chat_id=%s',(data.get('chat_id'),))
+                            asset_id=await crs.fetchone()
+                            asset_id=asset_id[0]
+                            del data['chat_id']
+                            data['asset_id']=asset_id
                         await crs.execute('select seller_id,asset_id,quantity,set_price,processing_speed from market_list where seller_id=%s and asset_id=%s',[data['sellerId'],data['asset_id']])
                         data=await crs.fetchone()
                         await crs.execute('select user_id from session where session_id=%s',(cookie,))
@@ -168,7 +179,7 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
                         status=await transaction(data,cookie,crs)
                         response=json.loads(status['body'])
                         if 'status'in response:
-                            await crs.execute('delete from market_list where seller_id=%s and asset_id=%s',(float(data['user_id']),float(data['asset_id'])))
+                            await crs.execute('delete from market_list where seller_id=%s and asset_id=%s',(float(data['user_id']),data['asset_id']))
             return status
     except psycopg.DatabaseError as error:
         print(error)
@@ -176,32 +187,59 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
         traceback.print_exc()
 
 
-async def fetch_chat(cookie,crs,chat_id=''):
+async def get_unread_message(cookie,crs):
     try:
         await crs.execute('select user_id from session where session_id=%s',(cookie,))
         user_id=await crs.fetchone()
+        user_id=user_id[0]
+        await crs.execute('select sum(unread_message) from chats where (seller_id=%s or buyer_id=%s)',(user_id,user_id))
+        no_of_unread_text=await crs.fetchone()
+        print(no_of_unread_text)
+        no_of_unread_text=json.dumps(no_of_unread_text[0])
+        data={
+            'body':no_of_unread_text
+        }
+        return data
+    except Exception:
+        traceback.print_exc()
+
+async def fetch_chat(cookie,crs,chat_id=''):
+    try:
+        print('hi inside me')
+        await crs.execute('select user_id from session where session_id=%s',(cookie,))
+        user_id=await crs.fetchone()
         if chat_id:
-            # await crs.execute("""
-            #                 select
-            #                     case
-            #                         when seller_id=%s 
-            #                             then buyer_id
-            #                         else seller_id
-            #                     end as other_user_id,
-            #                     seller_msg,
-            #                     buyer_msg
-            #                 from chats
-            #                 where (seller_id=%s or buyer_id=%s)
-            #                 and chat_id=%s
-            #                 """,(user_id[0],user_id[0],user_id[0],chat_id))
+            status=await check_unread_message(user_id[0],crs,chat_id)
+            if status[1] > 0:
+                await crs.execute('select seller_id,buyer_id from chats where chat_id=%s',(chat_id,))
+                users_id=await crs.fetchone()
+                if user_id[0] == users_id[0]:
+                    await crs.execute('''
+                                    update chats
+                                    set
+                                    seller_read_status='seen',
+                                    unread_message=0
+                                    where chat_id=%s
+                                    ''',(chat_id,))
+                else:
+                    await crs.execute('''
+                                    update chats
+                                    set
+                                    buyer_read_status='seen',
+                                    unread_message=0
+                                    where chat_id=%s
+                                    ''',(chat_id,))
             await crs.execute('select seller_id,buyer_id,message from chats where (seller_id=%s or buyer_id=%s) and chat_id=%s',(user_id[0],user_id[0],chat_id))
             messages=await crs.fetchone()
-            messages={
-                'seller_id':messages[0],
-                'buyer_id':messages[1],
-                'user_id':user_id[0],
-                'message':messages[2]
-            }
+            if messages:
+                messages={
+                    'seller_id':messages[0],
+                    'buyer_id':messages[1],
+                    'user_id':user_id[0],
+                    'message':messages[2]
+                }
+            else:
+                messages=[]
             reply=json.dumps(messages)
             data={'body':reply}
         else:
@@ -227,6 +265,8 @@ async def fetch_chat(cookie,crs,chat_id=''):
             chat_list=json.dumps(chat_list,default=lambda o:str(o) if isinstance(o,UUID) else o)
             data={'body':chat_list}
         return data
+    except psycopg.DatabaseError as err:
+        print(err)
     except Exception:
         traceback.print_exc()
 
@@ -351,6 +391,7 @@ def oauth_user(status,crs):
     return data
 
 async def logout(cookies,crs):
+    print('inside logout')
     await crs.execute("select * from session where session_id=%s",(cookies,))
     cookie_response=await crs.fetchone()
     if cookie_response:
@@ -416,7 +457,7 @@ async def get_asset_details(data,crs):
 #100% done with assets endpoint
 async def get_assets(crs):
     try:
-        await crs.execute("select id,name,symbol,price,market_cap,percent_change_24h from assets order by no limit 200")
+        await crs.execute("select id,name,symbol,price,market_cap,percent_change_24h,image from assets order by no limit 200")
         assets=await crs.fetchall()
         all_assets=[]
         for asset in assets:
@@ -426,7 +467,8 @@ async def get_assets(crs):
                 'symbol':asset[2],
                 'asset_price':float(asset[3]),
                 'market_cap':float(asset[4]),
-                'percent_change_24h':float(asset[5])
+                'percent_change_24h':float(asset[5]),
+                'logo':asset[6]
             }
             all_assets.append(asset)  
         db_assets=json.dumps(all_assets)

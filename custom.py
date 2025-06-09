@@ -37,7 +37,20 @@ async def connect_db(): # Connect to the data
     except psycopg.DatabaseError as error:
         traceback.print_exc()
         return None
-
+async def check_unread_message(user_id,crs,chat_id):
+    await crs.execute('''
+                        select
+                            case
+                                when seller_id=%s
+                                    then buyer_read_status
+                                else seller_read_status
+                            end as other_user_reas_status,
+                            unread_message
+                        from chats
+                        where chat_id=%s and (seller_id=%s or buyer_id=%s)
+                        ''',(user_id,chat_id,user_id,user_id))
+    status=await crs.fetchone()
+    return status
 
 def generate_trans_id():
     stri='bcdefghjklmnopqrstuvwxyzBCDEFGHLJKLMNOPQRSTUVWXYZ0123456789'

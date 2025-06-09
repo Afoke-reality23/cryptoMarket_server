@@ -5,7 +5,7 @@ import traceback
 import json
 from aiohttp import web
 import sys
-from custom import connect_db
+from custom import connect_db,check_unread_message
 from datetime import datetime,timezone
 
 if sys.platform.startswith("win"):
@@ -15,19 +15,52 @@ active_users={}
 
 
 # async def save_message(message,user_id,chat_id):
-async def save_message(msg,chat_id,last_msg):
+async def save_message(msg,chat_id,last_msg,user_id,recv_id):
     try:
-        print('inside save_message')
         conn=await connect_db()
         if conn:
             async with conn:
                 async with conn.cursor() as crs:
-                    await crs.execute('''
-                                        update chats
-                                            set message=message || %s::JSONB,last_msg=%s::JSONB
-                                            where chat_id=%s
-                                      ''',(json.dumps(msg),json.dumps(last_msg),chat_id))
-        print('message saved')
+                    await crs.execute('select seller_id,buyer_id from chats where chat_id=%s',(chat_id,))
+                    users_id=await crs.fetchone()
+
+                    if user_id == users_id[0]:
+                        if str(recv_id) in active_users:
+                            await crs.execute('''
+                                                update chats
+                                                    set
+                                                        message=message || %s::JSONB,last_msg=%s::JSONB,seller_read_status='seen'
+                                                    where chat_id=%s
+                                                ''',(json.dumps(msg),json.dumps(last_msg),chat_id))
+                        else:
+                             print('inside seller')
+                             await crs.execute('''
+                                                update chats
+                                                    set
+                                                        message=message || %s::JSONB,last_msg=%s::JSONB,seller_read_status='seen',
+                                                        buyer_read_status='unseen',
+                                                        unread_message=unread_message + 1
+                                                    where chat_id=%s
+                                                ''',(json.dumps(msg),json.dumps(last_msg),chat_id))
+                    else:
+                        if str(recv_id) in active_users:
+                            await crs.execute('''
+                                                update chats
+                                                    set
+                                                        message=message || %s::JSONB,last_msg=%s::JSONB,buyer_read_status='seen'
+                                                    where chat_id=%s
+                                                ''',(json.dumps(msg),json.dumps(last_msg),chat_id))
+                        else:
+                            print('inside buyer')
+                            await crs.execute('''
+                                                update chats
+                                                    set
+                                                        message=message || %s::JSONB,last_msg=%s::JSONB,buyer_read_status='seen',
+                                                        seller_read_status='unseen',
+                                                        unread_message=unread_message + 1
+                                                    where chat_id=%s
+                                                ''',(json.dumps(msg),json.dumps(last_msg),chat_id))
+                            
     except Exception:
         traceback.print_exc()
 async def store_users(client_id,websocket):
@@ -36,11 +69,10 @@ async def store_users(client_id,websocket):
                 active_users[client_id]=websocket
         elif active_users[client_id] != websocket:
             active_users[client_id]=websocket
-        print(active_users)
     except Exception:
         traceback.print_exc()
 
-async def extract_db_data(data):
+async def extract_db_data(data,recieverId):
     try:
         dt=datetime.now(timezone.utc).replace(microsecond=0)
         dt=dt.strftime('%Y-%m-%dT:%I:%M:%S%p')
@@ -52,8 +84,7 @@ async def extract_db_data(data):
             'time':data['time'],
             'msg':data['msg']
         }
-        print('about to save messages')
-        await save_message(message,chat_id,last_msg)
+        await save_message(message,chat_id,last_msg,message[0]['sender'],recieverId)
     except psycopg.DatabaseError as e:
         traceback.print_exc()    
 
@@ -67,10 +98,11 @@ async def handler(request):
         async for message in ws:
             deserialized_mssg=json.loads(message.data)
             if 'recieverId' in deserialized_mssg:
+                await extract_db_data(deserialized_mssg['message'],deserialized_mssg['recieverId'])
                 if deserialized_mssg['recieverId'] in active_users:
                     reciever_websocket=active_users[deserialized_mssg['recieverId']]
+                    print(reciever_websocket)
                     await reciever_websocket.send_str(json.dumps(deserialized_mssg['message']))
-                    await extract_db_data(deserialized_mssg['message'])
     except Exception:
         traceback.print_exc()
     finally:
@@ -82,7 +114,7 @@ async def health(request):
 
 async def main():
     try:
-        port=int(os.environ.get('PORT'))
+        port=int(os.environ.get('PORT',1991))
         app=web.Application()
         app.router.add_get("/",health)
         app.router.add_get("/chat",handler)
