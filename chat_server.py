@@ -114,7 +114,7 @@ async def health(request):
 
 async def main():
     try:
-        port=int(os.environ.get('PORT',1991))
+        port=int(os.environ.get('PORT'))
         app=web.Application()
         app.router.add_get("/",health)
         app.router.add_get("/chat",handler)
