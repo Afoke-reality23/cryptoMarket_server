@@ -428,7 +428,8 @@ async def get_asset_details(data,crs):
                     total_volume,
                     max_supply,
                     total_supply,
-                    circulating_supply
+                    circulating_supply,
+                    image
                 from assets a
                 join assets_market m on m.id=a.id
                 join assets_detail d on d.id=a.id
@@ -436,7 +437,7 @@ async def get_asset_details(data,crs):
                 """
         await crs.execute(query,(data['asset_id'],))
         values=await crs.fetchone()
-        cols=['asset_name','symbol','asset_price','market_cap','description','summary','snippet','founder','total_volume','supply_max','supply_total','supply_circulating']
+        cols=['asset_name','symbol','asset_price','market_cap','description','summary','snippet','founder','total_volume','supply_max','supply_total','supply_circulating','logo']
         detail_dict={}
         if values:
             for i,value in enumerate(values):
