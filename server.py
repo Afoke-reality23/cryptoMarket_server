@@ -105,8 +105,6 @@ async def process_request(path,request,sock,method,status,cookie,crs):#process a
                         reply=json.dumps(msg)
                         status={'body':reply}
                     else:
-                        print('about to sign up')
-                        print(data)
                         status=await signup(data,crs,sock,method)
                 case'/frontend/oauth/login/password':
                     await crs.execute('select email from users')
@@ -194,7 +192,6 @@ async def get_unread_message(cookie,crs):
         user_id=user_id[0]
         await crs.execute('select sum(unread_message) from chats where (seller_id=%s or buyer_id=%s)',(user_id,user_id))
         no_of_unread_text=await crs.fetchone()
-        print(no_of_unread_text)
         no_of_unread_text=json.dumps(no_of_unread_text[0])
         data={
             'body':no_of_unread_text
@@ -205,7 +202,6 @@ async def get_unread_message(cookie,crs):
 
 async def fetch_chat(cookie,crs,chat_id=''):
     try:
-        print('hi inside me')
         await crs.execute('select user_id from session where session_id=%s',(cookie,))
         user_id=await crs.fetchone()
         if chat_id:
@@ -275,6 +271,7 @@ async def get_listed_asset(crs):
     try:
         await crs.execute("""
                     select
+                        username,
                         name,
                         symbol,
                         a.id,
@@ -284,7 +281,9 @@ async def get_listed_asset(crs):
                         seller_id
                     from market_list m
                     join assets a on a.id=m.asset_id
-                    where state=%s
+                    join users u on u.users_id=m.seller_id
+                    where state=%s and seller_id in (m.seller_id)
+                    group by username,name,symbol,a.id,image,set_price,m.quantity,seller_id
                     """,('listed',))
         db_response=await crs.fetchall()
         listed_asset=[[float(y) if isinstance(y,Decimal) else y for y in x] for x in db_response]
@@ -313,7 +312,24 @@ async def get_searched_assets(data,crs):
     try:
         searched_assets=data['searched_asset'].split(',')
         placeholder=",".join(['%s']* len(searched_assets))
-        await crs.execute(f"select id,name,symbol,price,market_cap,percent_change_24h from assets where id in ({placeholder}) order by no",searched_assets)
+        await crs.execute(f"""
+                            select
+                                a.id,
+                                name,
+                                symbol,
+                                price,
+                                market_cap,
+                                percent_change_24h,
+                                image,
+                                percent_change_7d,
+                                percent_change_30d,
+                                volume_change_24h,
+                                volume_change_7d,
+                                volume_change_30d
+                           from assets_market m
+                           join assets a on a.id=m.id
+                           where a.id in ({placeholder}) order by no
+                            """,searched_assets)
         assets=await crs.fetchall()
         all_assets=[]
         for asset in assets:
@@ -321,12 +337,18 @@ async def get_searched_assets(data,crs):
                 'asset_id':asset[0],
                 'asset_name':asset[1],
                 'symbol':asset[2],
-                'asset_price':float(asset[3]),
-                'market_cap':float(asset[4]),
-                'percent_change_24h':float(asset[5])
-            }
+                'asset_price':asset[3],
+                'market_cap':asset[4],
+                'percent_change_24h':asset[5],
+                'logo':asset[6],
+                'per7d':asset[7],
+                'per30d':asset[8],
+                'vol24h':asset[9],
+                'vol7d':asset[10],
+                'vol30d':asset[11]
+                }
             all_assets.append(asset)  
-        db_assets=json.dumps(all_assets)
+        db_assets=json.dumps(all_assets,default=lambda x: float(x) if isinstance(x,Decimal) else x)
         reply={'body':db_assets}
         return reply
     except Exception:
@@ -391,7 +413,6 @@ def oauth_user(status,crs):
     return data
 
 async def logout(cookies,crs):
-    print('inside logout')
     await crs.execute("select * from session where session_id=%s",(cookies,))
     cookie_response=await crs.fetchone()
     if cookie_response:
@@ -458,7 +479,24 @@ async def get_asset_details(data,crs):
 #100% done with assets endpoint
 async def get_assets(crs):
     try:
-        await crs.execute("select id,name,symbol,price,market_cap,percent_change_24h,image from assets order by no limit 200")
+        await crs.execute("""
+                            select
+                                a.id,
+                                name,
+                                symbol,
+                                price,
+                                market_cap,
+                                percent_change_24h,
+                                image,
+                                percent_change_7d,
+                                percent_change_30d,
+                                volume_change_24h,
+                                volume_change_7d,
+                                volume_change_30d
+                           from assets_market m
+                           join assets a on a.id=m.id
+                           order by no limit 200
+                            """)
         assets=await crs.fetchall()
         all_assets=[]
         for asset in assets:
@@ -466,13 +504,18 @@ async def get_assets(crs):
                 'asset_id':asset[0],
                 'asset_name':asset[1],
                 'symbol':asset[2],
-                'asset_price':float(asset[3]),
-                'market_cap':float(asset[4]),
-                'percent_change_24h':float(asset[5]),
-                'logo':asset[6]
-            }
+                'asset_price':asset[3],
+                'market_cap':asset[4],
+                'percent_change_24h':asset[5],
+                'logo':asset[6],
+                'per7d':asset[7],
+                'per30d':asset[8],
+                'vol24h':asset[9],
+                'vol7d':asset[10],
+                'vol30d':asset[11]
+                }
             all_assets.append(asset)  
-        db_assets=json.dumps(all_assets)
+        db_assets=json.dumps(all_assets,default=lambda x: float(x) if isinstance(x,Decimal) else x)
         reply={'body':db_assets}
         return reply
     except Exception:

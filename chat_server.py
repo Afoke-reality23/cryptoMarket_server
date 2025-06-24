@@ -63,6 +63,8 @@ async def save_message(msg,chat_id,last_msg,user_id,recv_id):
                             
     except Exception:
         traceback.print_exc()
+
+
 async def store_users(client_id,websocket):
     try:
         if client_id not in active_users:
@@ -97,12 +99,23 @@ async def handler(request):
         await ws.prepare(request)
         async for message in ws:
             deserialized_mssg=json.loads(message.data)
-            if 'recieverId' in deserialized_mssg:
-                await extract_db_data(deserialized_mssg['message'],deserialized_mssg['recieverId'])
-                if deserialized_mssg['recieverId'] in active_users:
-                    reciever_websocket=active_users[deserialized_mssg['recieverId']]
-                    print(reciever_websocket)
-                    await reciever_websocket.send_str(json.dumps(deserialized_mssg['message']))
+            print(deserialized_mssg)
+            if deserialized_mssg['sender'] != 'system':
+                if 'recieverId' in deserialized_mssg:
+                    await extract_db_data(deserialized_mssg['message'],deserialized_mssg['recieverId'])
+                    if deserialized_mssg['recieverId'] in active_users:
+                        reciever_websocket=active_users[deserialized_mssg['recieverId']]
+                        print(reciever_websocket)
+                        await reciever_websocket.send_str(json.dumps(deserialized_mssg['message']))
+            else:
+                message=deserialized_mssg
+                recv_id=message['recieverId']
+                del message['recieverId']
+                await extract_db_data(message,recv_id)
+                if recv_id in active_users:
+                    sock=active_users[recv_id]
+                    await sock.send_str(json.dumps(message))
+
     except Exception:
         traceback.print_exc()
     finally:
